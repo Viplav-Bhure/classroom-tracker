@@ -76,16 +76,31 @@ class FaceTracker:
                 for face in faces_dnn:
                     x, y, fw, fh = face[:4].astype(int)
                     
+                    # Extract 5-point landmarks
+                    # YuNet returns: RightEye, LeftEye, Nose, RightMouth, LeftMouth
+                    # Right eye is left side of image, Left eye is right side
+                    rx, ry = face[4:6]
+                    lx, ly = face[6:8]
+                    nx, ny = face[8:10]
+                    
+                    # Calculate simple head yaw ratio
+                    # Nose horizontal distance to each eye
+                    dist_right = max(0, nx - rx)
+                    dist_left  = max(0, lx - nx)
+                    
+                    # If ratio is close to 1, face is looking straight ahead
+                    ratio = dist_right / (dist_left + 1e-5)
+                    is_frontal = 0.5 < ratio < 2.0
+                    is_away = ratio < 0.3 or ratio > 3.0
+                    
                     # Ensure bounds are within frame
                     x1, y1 = max(0, x - 10), max(0, y - 10)
                     x2, y2 = min(w, x + fw + 10), min(h, y + fh + 10)
                     
                     roi = frame[y1:y2, x1:x2].copy()
                     
-                    # For DNN, we don't have detailed landmarks, so use approximations
-                    ear = 0.3  # Default neutral EAR
-                    mar = 0.4  # Default neutral MAR
-                    is_away = False  # Cannot determine without landmarks
+                    ear = 0.3  # Default
+                    mar = 0.4  # Default
                     
                     faces.append({
                         "bbox": (x1, y1, x2 - x1, y2 - y1),
@@ -93,8 +108,9 @@ class FaceTracker:
                         "ear": round(ear, 3),
                         "mar": round(mar, 3),
                         "is_away": is_away,
-                        "is_drowsy": ear < 0.20,
-                        "is_yawning": mar > 0.55,
+                        "is_frontal": is_frontal,
+                        "is_drowsy": False,
+                        "is_yawning": False,
                     })
         else:
             # Use Haar cascades
@@ -139,8 +155,8 @@ def draw_face(frame, face, label, score):
 
     cv2.rectangle(frame, (x, y), (x+bw, y+bh), c, 2)
 
-    tag = f"{label.upper()} {score:.0f}%"
-    cv2.rectangle(frame, (x, y-22), (x+len(tag)*9, y), c, -1)
+    tag = f"{label.upper()}"
+    cv2.rectangle(frame, (x, y-22), (x+len(tag)*11, y), c, -1)
     cv2.putText(frame, tag, (x+3, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
 
     ear_color = (0, 0, 200) if face["is_drowsy"] else (0, 200, 0)

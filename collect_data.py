@@ -15,6 +15,8 @@ import os
 
 import cv2
 
+from face_utils import FaceTracker
+
 CLASSES = ["attentive", "distracted", "disengaged"]
 
 parser = argparse.ArgumentParser()
@@ -29,6 +31,7 @@ os.makedirs(save_dir, exist_ok=True)
 existing = len(os.listdir(save_dir))
 cap      = cv2.VideoCapture(args.cam)
 count    = 0
+tracker  = FaceTracker()
 
 print(f"\nRecording class: '{args.cls}'  (target: {args.n} samples)")
 print("SPACE = capture  |  Q = quit\n")
@@ -43,14 +46,23 @@ while count < args.n:
                 (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     cv2.putText(frame, "SPACE=capture  Q=quit",
                 (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+    
+    faces = tracker.process(frame)
+    if len(faces) > 0:
+        x, y, bw, bh = faces[0]["bbox"]
+        cv2.rectangle(frame, (x, y), (x+bw, y+bh), (255, 0, 0), 2)
+
     cv2.imshow("Collect Data", frame)
 
     key = cv2.waitKey(1) & 0xFF
     if key == ord(" "):
-        fname = os.path.join(save_dir, f"{args.cls}_{existing + count:04d}.jpg")
-        cv2.imwrite(fname, frame)
-        count += 1
-        print(f"  Saved {count}/{args.n}")
+        if len(faces) > 0:
+            fname = os.path.join(save_dir, f"{args.cls}_{existing + count:04d}.jpg")
+            cv2.imwrite(fname, faces[0]["roi"])
+            count += 1
+            print(f"  Saved {count}/{args.n}")
+        else:
+            print("  No face detected! Could not save.")
     elif key == ord("q"):
         break
 
