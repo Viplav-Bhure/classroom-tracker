@@ -49,7 +49,6 @@ def init():
         st.session_state.fps      = 0.0
         st.session_state.t_fps    = time.time()
         st.session_state.n_frames = 0
-        st.session_state.process_next = False
 
 init()
 
@@ -90,8 +89,6 @@ with c1:
         else:
             st.session_state.cap     = cap
             st.session_state.running = True
-            st.info(f"✓ Camera opened: {test_frame.shape}")
-            st.rerun()  # Force immediate update
 
 with c2:
     if st.button("⏹ Stop", disabled=not st.session_state.running):
@@ -102,9 +99,7 @@ with c2:
 # Add a "Next Frame" button for manual control
 with c3:
     if st.session_state.running:
-        if st.button("� Analyze Frame", help="Process current frame with face detection and engagement analysis"):
-            st.session_state.process_next = True
-        st.caption("📹 Live preview active - Click 'Analyze Frame' to process with AI")
+        st.caption("📹 Live feed active — processing every frame automatically")
     else:
         st.caption("Click Start to begin camera capture")
 
@@ -164,158 +159,124 @@ def gauge(value, title, color):
 predictor = load_predictor()
 tracker   = load_tracker()
 
-# Show live camera preview when running
+# ── Main processing loop ──────────────────────────────────────────────────────
 if st.session_state.running:
     cap = st.session_state.cap
-    if cap is None:
-        st.error("Camera not initialized. Click Start button.")
+    if cap is None or not cap.isOpened():
+        st.error("Camera disconnected. Click Start again.")
         st.session_state.running = False
-    else:
-        # Show placeholder when not processing
-        if not st.session_state.process_next:
-            frame_box.info("📹 Camera active - Click 'Analyze Frame' to process current frame")
-            
-            # Clear processing-related UI elements when just showing placeholder
-            with metric_row.container():
-                st.caption("Camera ready for analysis")
-            gauge_attn.empty()
-            gauge_dist.empty()
-            gauge_dis.empty()
-            chart_box.empty()
-            alert_box.empty()
+        st.rerun()
 
-# Handle frame processing when Next Frame is clicked (separate from preview)
-if st.session_state.running and st.session_state.process_next:
-    cap = st.session_state.cap
-    if cap is not None:
-        # Read a fresh frame for processing
-        ok, frame = cap.read()
-        if ok and frame is not None:
-            frame = cv2.flip(frame, 1)
+    ok, frame = cap.read()
+    if not ok or frame is None:
+        st.warning("Camera not accessible. Check the camera index.")
+        st.session_state.running = False
+        st.rerun()
 
-            # FPS tracking
-            st.session_state.n_frames += 1
-            if time.time() - st.session_state.t_fps >= 1.0:
-                st.session_state.fps     = st.session_state.n_frames
-                st.session_state.n_frames = 0
-                st.session_state.t_fps   = time.time()
+    frame = cv2.flip(frame, 1)
 
-            # Detect + predict
-            faces = tracker.process(frame)
-            labels_this_frame = []
+    # FPS tracking
+    st.session_state.n_frames += 1
+    if time.time() - st.session_state.t_fps >= 1.0:
+        st.session_state.fps      = st.session_state.n_frames
+        st.session_state.n_frames = 0
+        st.session_state.t_fps    = time.time()
 
-            for face in faces:
-                label, conf, score = predictor.predict(face["roi"])
+    # Detect + predict
+    faces = tracker.process(frame)
+    for face in faces:
+        label, conf, score = predictor.predict(face["roi"])
+        if conf < 0.55:
+            if face["is_drowsy"] or face["is_yawning"]:
+                label = "disengaged"
+            elif face["is_away"]:
+                label = "distracted"
+        st.session_state.window.append(label)
+        draw_face(frame, face, label, score)
 
-                # Heuristic override for low confidence
-                if conf < 0.55:
-                    if face["is_drowsy"] or face["is_yawning"]:
-                        label = "disengaged"
-                    elif face["is_away"]:
-                        label = "distracted"
+    # Stats overlay
+    n   = len(st.session_state.window) or 1
+    pct = {cls: st.session_state.window.count(cls) / n * 100 for cls in CLASSES}
 
-                labels_this_frame.append(label)
-                st.session_state.window.append(label)
-                draw_face(frame, face, label, score)
+    h_f, w_f = frame.shape[:2]
+    panel = f"Attn:{pct['attentive']:.0f}%  Dist:{pct['distracted']:.0f}%  FPS:{st.session_state.fps}"
+    cv2.rectangle(frame, (w_f-260, 5), (w_f-5, 28), (30, 30, 30), -1)
+    cv2.putText(frame, panel, (w_f-255, 22),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220, 220, 220), 1)
 
-            # Stats overlay (top-right corner)
-            n = len(st.session_state.window) or 1
-            pct = {cls: st.session_state.window.count(cls) / n * 100 for cls in CLASSES}
+    frame_box.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
+                    channels="RGB", use_container_width=True)
 
-            h_f, w_f = frame.shape[:2]
-            panel = f"Attn:{pct['attentive']:.0f}%  Dist:{pct['distracted']:.0f}%  FPS:{st.session_state.fps}"
-            cv2.rectangle(frame, (w_f-260, 5), (w_f-5, 28), (30,30,30), -1)
-            cv2.putText(frame, panel, (w_f-255, 22),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220,220,220), 1)
+    gauge_attn.plotly_chart(gauge(pct["attentive"],  "✅ Attentive",  "#2ECC71"),
+                            use_container_width=True, key="ga")
+    gauge_dist.plotly_chart(gauge(pct["distracted"], "⚠️ Distracted", "#F39C12"),
+                            use_container_width=True, key="gd")
+    gauge_dis.plotly_chart( gauge(pct["disengaged"], "❌ Disengaged", "#E74C3C"),
+                            use_container_width=True, key="ge")
 
-            # Show processed frame
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame_box.image(rgb_frame, channels="RGB", use_container_width=True)
-            
-            # Metrics row
-            with metric_row.container():
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Faces Detected", len(faces))
-                m2.metric("FPS", f"{st.session_state.fps:.0f}")
-                m3.metric("Alert Threshold", f"{LOW_ENGAGEMENT_THRESHOLD}%")
-
-            # Record history every ~5 s (every 5*fps frames roughly)
-            if st.session_state.n_frames % max(1, int(st.session_state.fps * 5)) == 0:
-                st.session_state.history.append(
-                    (round(time.time(), 1), round(pct["attentive"], 1))
-                )
-
-            # Time-series chart
-            if len(st.session_state.history) >= 2:
-                ts  = [i * 5 for i in range(len(st.session_state.history))]
-                vals = [h[1] for h in st.session_state.history]
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
-                                         line=dict(color="#2ECC71", width=2),
-                                         fill="tozeroy", fillcolor="rgba(46, 204, 113, 0.13)",
-                                         name="Attentive %"))
-                fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash",
-                              line_color="red", annotation_text="Alert threshold")
-                fig.update_layout(title="Attentive % Over Session",
-                                  xaxis_title="Elapsed (s)", yaxis_title="%",
-                                  yaxis=dict(range=[0, 100]), height=250,
-                                  margin=dict(t=40, b=30, l=40, r=20),
-                                  paper_bgcolor="rgba(0,0,0,0)")
-                chart_box.plotly_chart(fig, use_container_width=True, key="chart_timeseries")
-
-            # Alert
-            if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
-                alert_box.error(
-                    f"⚠️ Low engagement detected! Only {pct['attentive']:.0f}% attentive. "
-                    "Consider a quick activity break or Q&A."
-                )
-            else:
-                alert_box.empty()
-
-            # Update gauges
-            gauge_attn.plotly_chart(gauge(pct["attentive"],  "✅ Attentive",  "#2ECC71"),
-                                    use_container_width=True, key="gauge_attentive_live")
-            gauge_dist.plotly_chart(gauge(pct["distracted"], "⚠️ Distracted", "#F39C12"),
-                                    use_container_width=True, key="gauge_distracted_live")
-            gauge_dis.plotly_chart( gauge(pct["disengaged"], "❌ Disengaged", "#E74C3C"),
-                                    use_container_width=True, key="gauge_disengaged_live")
-
-    # Reset the process flag
-    st.session_state.process_next = False
-
-# Show a placeholder when not running
-elif not st.session_state.running:
-    frame_box.info("📹 Click 'Start' to begin camera capture")
-    # Clear metrics when not running
     with metric_row.container():
-        st.caption("Camera not active")
-    gauge_attn.empty()
-    gauge_dist.empty()
-    gauge_dis.empty()
-    chart_box.empty()
-    alert_box.empty()
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Faces Detected", len(faces))
+        m2.metric("FPS", f"{st.session_state.fps:.0f}")
+        m3.metric("Alert Threshold", f"{LOW_ENGAGEMENT_THRESHOLD}%")
+
+    # Record history every ~5 s
+    if st.session_state.n_frames % max(1, int(st.session_state.fps * 5)) == 0:
+        st.session_state.history.append(
+            (round(time.time(), 1), round(pct["attentive"], 1))
+        )
+
+    if len(st.session_state.history) >= 2:
+        ts   = [i * 5 for i in range(len(st.session_state.history))]
+        vals = [h[1] for h in st.session_state.history]
+        fig  = go.Figure()
+        fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
+                                 line=dict(color="#2ECC71", width=2),
+                                 fill="tozeroy", fillcolor="rgba(46,204,113,0.13)",
+                                 name="Attentive %"))
+        fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash",
+                      line_color="red", annotation_text="Alert threshold")
+        fig.update_layout(title="Attentive % Over Session",
+                          xaxis_title="Elapsed (s)", yaxis_title="%",
+                          yaxis=dict(range=[0, 100]), height=250,
+                          margin=dict(t=40, b=30, l=40, r=20),
+                          paper_bgcolor="rgba(0,0,0,0)")
+        chart_box.plotly_chart(fig, use_container_width=True, key="chart")
+
+    if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
+        alert_box.error(
+            f"⚠️ Low engagement! Only {pct['attentive']:.0f}% attentive. "
+            "Consider a break or Q&A."
+        )
+    else:
+        alert_box.empty()
+
+    time.sleep(0.04)   # ~25 fps cap
+    st.rerun()         # ← this is what drives the continuous live feed
+
+# ── Post-session summary ──────────────────────────────────────────────────────
+elif st.session_state.history:
+    frame_box.info("📹 Click Start to begin a new session")
     st.markdown("---")
     st.markdown("### 📊 Session Summary")
 
     vals = [h[1] for h in st.session_state.history]
-    
-    # Only show statistics if we have data
-    if len(vals) > 0:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Avg Attentive %",     f"{np.mean(vals):.1f}%")
-        col2.metric("Min Attentive %",     f"{np.min(vals):.1f}%")
-        col3.metric("Duration (snapshots)", len(vals))
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Avg Attentive %",      f"{np.mean(vals):.1f}%")
+    col2.metric("Min Attentive %",      f"{np.min(vals):.1f}%")
+    col3.metric("Duration (snapshots)", len(vals))
 
-        ts   = [i * 5 for i in range(len(vals))]
-        fig  = go.Figure()
-        fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
-                                 line=dict(color="#2ECC71", width=2),
-                                 fill="tozeroy", fillcolor="rgba(46, 204, 113, 0.13)"))
-        fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash", line_color="red")
-        fig.update_layout(title="Full Session — Attentive %",
-                          xaxis_title="Elapsed (s)", yaxis_title="%",
-                          height=280, margin=dict(t=40,b=30,l=40,r=20),
-                          paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No session data recorded yet. Process some frames to see statistics.")
+    ts  = [i * 5 for i in range(len(vals))]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
+                             line=dict(color="#2ECC71", width=2),
+                             fill="tozeroy", fillcolor="rgba(46,204,113,0.13)"))
+    fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash", line_color="red")
+    fig.update_layout(title="Full Session — Attentive %",
+                      xaxis_title="Elapsed (s)", yaxis_title="%",
+                      height=280, margin=dict(t=40, b=30, l=40, r=20),
+                      paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig, use_container_width=True)
+
+else:
+    frame_box.info("📹 Click Start to begin camera capture")

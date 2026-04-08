@@ -31,8 +31,8 @@ FACE_LM_IDX = [0, 1, 2, 3, 4, 5]  # All 6 points for head pose
 class FaceTracker:
     def __init__(self, max_faces=10):
         # Download YuNet face detection model
-        model_url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/yunet.onnx"
-        model_path = "yunet.onnx"
+        model_url = "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+        model_path = "face_detection_yunet_2023mar.onnx"
         
         if not os.path.exists(model_path):
             print("Downloading YuNet face detection model...")

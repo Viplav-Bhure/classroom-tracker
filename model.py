@@ -8,7 +8,6 @@ import random
 from pathlib import Path
 
 import cv2
-import kagglehub
 import numpy as np
 import timm
 import torch
@@ -73,6 +72,7 @@ class EngagementDataset(Dataset):
         if not has_any_data:
             print("No dataset found. Downloading DAiSEE dataset from Kaggle...")
             try:
+                import kagglehub
                 dataset_path = kagglehub.dataset_download("joyee19/studentengagement")
                 print(f"Downloaded to: {dataset_path}")
                 
