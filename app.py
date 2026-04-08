@@ -243,7 +243,7 @@ if st.session_state.running:
                               yaxis=dict(range=[0, 100]), height=250,
                               margin=dict(t=40, b=30, l=40, r=20),
                               paper_bgcolor="rgba(0,0,0,0)")
-            chart_box.plotly_chart(fig, use_container_width=True, key="chart")
+            chart_box.plotly_chart(fig, use_container_width=True)
 
         if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
             alert_box.error(
