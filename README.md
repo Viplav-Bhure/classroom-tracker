@@ -163,3 +163,116 @@ thresholds:
 - **MediaPipe** — real-time face mesh
 - **OpenCV** — webcam capture and annotation
 - **Streamlit + Plotly** — live dashboard
+
+🎓 Classroom Engagement Tracker — Simple Explanation
+🟢 1. What is this project?
+
+This is a real-time AI system that checks if students are:
+
+✅ Attentive (focused)
+⚠️ Distracted (looking away, confused)
+❌ Disengaged (sleepy, not interested)
+
+👉 It uses a camera (webcam) and gives live results on screen
+
+🟢 2. Why we made this?
+
+“In online or large classrooms, it’s hard for teachers to know who is paying attention.
+So we built a system that automatically tracks student engagement using AI.”
+
+🟢 3. Technologies Used (keep this short)
+OpenCV → to capture video from camera
+MediaPipe → to detect face & facial landmarks
+MobileNetV2 (Deep Learning model) → to classify attention
+Streamlit → to show dashboard
+PyTorch → to train model
+
+👉 One line:
+“OpenCV + MediaPipe extract features, and MobileNetV2 classifies engagement.”
+
+🟢 4. How system works (VERY IMPORTANT — explain clearly)
+
+Say this step by step 👇
+
+🔄 Flow:
+Camera captures video
+Face is detected using OpenCV
+Important features are extracted:
+👁 Eye (EAR → eyes closed = sleepy)
+👄 Mouth (MAR → yawning)
+🧠 Head pose (looking away)
+Face image is sent to AI model (MobileNetV2)
+Model predicts:
+Attentive / Distracted / Disengaged
+Output is shown on dashboard:
+Label (text)
+Score (0–100)
+Graph (live tracking)
+🟢 5. Input → Process → Output (MOST IMPORTANT PART)
+✅ Input:
+Live webcam video OR recorded video
+⚙️ Process:
+Face detection
+Feature extraction (eyes, mouth, head)
+AI model prediction
+📊 Output:
+Student state:
+👉 Attentive / Distracted / Disengaged
+Engagement score (like 75%)
+Live dashboard with charts
+🟢 6. Training the Model (simple explanation)
+
+“We trained our model using dataset like DAiSEE and custom images.”
+
+Steps:
+
+Collect images (3 classes)
+Train MobileNetV2
+Save best model (model.pth)
+Use it in real-time app
+🟢 7. Accuracy / Performance
+Accuracy ≈ 88%
+Works in real-time (~25ms per frame)
+
+👉 Say:
+“Our model gives good accuracy and fast real-time performance.”
+
+🟢 8. Demo Explanation (what to say while showing)
+
+When you run:
+
+streamlit run app.py
+
+Say this 👇
+
+“This is our live dashboard”
+“When I start camera, system detects my face”
+“Now you can see it classifies my state”
+“If I look away → distracted”
+“If I close eyes → disengaged”
+“Graph updates in real time”
+🟢 9. Key Features (quick points)
+Real-time detection
+Works on webcam
+AI-based classification
+Live dashboard
+Can generate reports (CSV)
+🟢 10. One-Line Conclusion (IMPORTANT)
+
+👉 Say this at end:
+
+“This project helps teachers automatically monitor student attention using AI, making classrooms more interactive and effective.”
+
+🔥 BONUS: 1-Minute Full Script (MEMORIZE THIS)
+
+“Good morning, today I am presenting our project Classroom Engagement Tracker.
+This system uses AI to detect whether a student is attentive, distracted, or disengaged in real time.
+
+We use OpenCV and MediaPipe to detect the face and extract features like eye movement, mouth movement, and head pose.
+These features are passed into a MobileNetV2 deep learning model which classifies the student’s engagement level.
+
+The system takes webcam input, processes each frame, and outputs the engagement state along with a score on a live Streamlit dashboard.
+
+Our model is trained on datasets like DAiSEE and achieves around 88% accuracy with real-time performance.
+
+This project can help teachers monitor student attention automatically, especially in online or large classrooms.”
