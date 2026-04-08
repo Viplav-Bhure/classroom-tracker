@@ -55,7 +55,7 @@ init()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("🎓 Engagement Tracker")
+    st.title("🎓 Classroom Engagement Tracker")
     st.markdown("---")
     cam_idx = st.number_input("Camera index", 0, 5, 0)
     st.markdown("---")
@@ -205,14 +205,14 @@ if st.session_state.running:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220, 220, 220), 1)
 
     frame_box.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-                    channels="RGB", use_container_width=True)
+                    channels="RGB", width="stretch")
 
     gauge_attn.plotly_chart(gauge(pct["attentive"],  "✅ Attentive",  "#2ECC71"),
-                            use_container_width=True, key="ga")
+                            width="stretch", key="ga")
     gauge_dist.plotly_chart(gauge(pct["distracted"], "⚠️ Distracted", "#F39C12"),
-                            use_container_width=True, key="gd")
+                            width="stretch", key="gd")
     gauge_dis.plotly_chart( gauge(pct["disengaged"], "❌ Disengaged", "#E74C3C"),
-                            use_container_width=True, key="ge")
+                            width="stretch", key="ge")
 
     with metric_row.container():
         m1, m2, m3 = st.columns(3)
@@ -241,7 +241,7 @@ if st.session_state.running:
                           yaxis=dict(range=[0, 100]), height=250,
                           margin=dict(t=40, b=30, l=40, r=20),
                           paper_bgcolor="rgba(0,0,0,0)")
-        chart_box.plotly_chart(fig, use_container_width=True, key="chart")
+        chart_box.plotly_chart(fig, width="stretch", key="chart")
 
     if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
         alert_box.error(
@@ -276,7 +276,7 @@ elif st.session_state.history:
                       xaxis_title="Elapsed (s)", yaxis_title="%",
                       height=280, margin=dict(t=40, b=30, l=40, r=20),
                       paper_bgcolor="rgba(0,0,0,0)")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 else:
     frame_box.info("📹 Click Start to begin camera capture")
