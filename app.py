@@ -74,7 +74,7 @@ st.caption("Real-time student focus detection using MobileNetV2 + MediaPipe")
 c1, c2, c3 = st.columns([1, 1, 6])
 with c1:
     if st.button("▶ Start", type="primary", disabled=st.session_state.running):
-        cap = cv2.VideoCapture(int(cam_idx))
+        cap = cv2.VideoCapture(int(cam_idx), cv2.CAP_DSHOW)
         # Set camera to use direct backend and allow for proper initialization
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer to get latest frames
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -167,92 +167,95 @@ if st.session_state.running:
         st.session_state.running = False
         st.rerun()
 
-    ok, frame = cap.read()
-    if not ok or frame is None:
-        st.warning("Camera not accessible. Check the camera index.")
-        st.session_state.running = False
-        st.rerun()
+    while st.session_state.running:
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            st.warning("Camera not accessible. Check the camera index.")
+            st.session_state.running = False
+            break
 
-    frame = cv2.flip(frame, 1)
+        frame = cv2.flip(frame, 1)
 
-    # FPS tracking
-    st.session_state.n_frames += 1
-    if time.time() - st.session_state.t_fps >= 1.0:
-        st.session_state.fps      = st.session_state.n_frames
-        st.session_state.n_frames = 0
-        st.session_state.t_fps    = time.time()
+        # FPS tracking
+        st.session_state.n_frames += 1
+        curr_time = time.time()
+        if curr_time - st.session_state.t_fps >= 1.0:
+            st.session_state.fps      = st.session_state.n_frames
+            st.session_state.n_frames = 0
+            st.session_state.t_fps    = curr_time
 
-    # Detect + predict
-    faces = tracker.process(frame)
-    for face in faces:
-        label, conf, score = predictor.predict(face["roi"])
-        if conf < 0.55:
-            if face["is_drowsy"] or face["is_yawning"]:
-                label = "disengaged"
-            elif face["is_away"]:
-                label = "distracted"
-        st.session_state.window.append(label)
-        draw_face(frame, face, label, score)
+        # Detect + predict
+        faces = tracker.process(frame)
+        for face in faces:
+            label, conf, score = predictor.predict(face["roi"])
+            if conf < 0.55:
+                if face["is_drowsy"] or face["is_yawning"]:
+                    label = "disengaged"
+                elif face["is_away"]:
+                    label = "distracted"
+            st.session_state.window.append(label)
+            draw_face(frame, face, label, score)
 
-    # Stats overlay
-    n   = len(st.session_state.window) or 1
-    pct = {cls: st.session_state.window.count(cls) / n * 100 for cls in CLASSES}
+        # Stats overlay
+        n   = len(st.session_state.window) or 1
+        pct = {cls: st.session_state.window.count(cls) / n * 100 for cls in CLASSES}
 
-    h_f, w_f = frame.shape[:2]
-    panel = f"Attn:{pct['attentive']:.0f}%  Dist:{pct['distracted']:.0f}%  FPS:{st.session_state.fps}"
-    cv2.rectangle(frame, (w_f-260, 5), (w_f-5, 28), (30, 30, 30), -1)
-    cv2.putText(frame, panel, (w_f-255, 22),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220, 220, 220), 1)
+        h_f, w_f = frame.shape[:2]
+        panel = f"Attn:{pct['attentive']:.0f}%  Dist:{pct['distracted']:.0f}%  FPS:{st.session_state.fps}"
+        cv2.rectangle(frame, (w_f-260, 5), (w_f-5, 28), (30, 30, 30), -1)
+        cv2.putText(frame, panel, (w_f-255, 22),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220, 220, 220), 1)
 
-    frame_box.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-                    channels="RGB", width="stretch")
+        # Render video
+        frame_box.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
 
-    gauge_attn.plotly_chart(gauge(pct["attentive"],  "✅ Attentive",  "#2ECC71"),
-                            width="stretch", key="ga")
-    gauge_dist.plotly_chart(gauge(pct["distracted"], "⚠️ Distracted", "#F39C12"),
-                            width="stretch", key="gd")
-    gauge_dis.plotly_chart( gauge(pct["disengaged"], "❌ Disengaged", "#E74C3C"),
-                            width="stretch", key="ge")
+        # Render Metrics efficiently (skip Plotly rendering every frame)
+        if st.session_state.n_frames % 5 == 0:
+            # We use st.progress to simulate gauges because plotly causes heavy lag and flickering
+            gauge_attn.markdown(f"**✅ Attentive**: {pct['attentive']:.0f}%")
+            gauge_dist.markdown(f"**⚠️ Distracted**: {pct['distracted']:.0f}%")
+            gauge_dis.markdown(f"**❌ Disengaged**: {pct['disengaged']:.0f}%")
+            
+            with metric_row.container():
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Faces Detected", len(faces))
+                m2.metric("FPS", f"{st.session_state.fps:.0f}")
+                m3.metric("Alert Threshold", f"{LOW_ENGAGEMENT_THRESHOLD}%")
 
-    with metric_row.container():
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Faces Detected", len(faces))
-        m2.metric("FPS", f"{st.session_state.fps:.0f}")
-        m3.metric("Alert Threshold", f"{LOW_ENGAGEMENT_THRESHOLD}%")
+        # Record history every ~5 s
+        if st.session_state.n_frames % max(1, int(st.session_state.fps * 5)) == 0:
+            st.session_state.history.append(
+                (round(curr_time, 1), round(pct["attentive"], 1))
+            )
 
-    # Record history every ~5 s
-    if st.session_state.n_frames % max(1, int(st.session_state.fps * 5)) == 0:
-        st.session_state.history.append(
-            (round(time.time(), 1), round(pct["attentive"], 1))
-        )
+        if len(st.session_state.history) >= 2 and st.session_state.n_frames % 15 == 0:
+            ts   = [i * 5 for i in range(len(st.session_state.history))]
+            vals = [h[1] for h in st.session_state.history]
+            fig  = go.Figure()
+            fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
+                                     line=dict(color="#2ECC71", width=2),
+                                     fill="tozeroy", fillcolor="rgba(46,204,113,0.13)",
+                                     name="Attentive %"))
+            fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash",
+                          line_color="red", annotation_text="Alert threshold")
+            fig.update_layout(title="Attentive % Over Session",
+                              xaxis_title="Elapsed (s)", yaxis_title="%",
+                              yaxis=dict(range=[0, 100]), height=250,
+                              margin=dict(t=40, b=30, l=40, r=20),
+                              paper_bgcolor="rgba(0,0,0,0)")
+            chart_box.plotly_chart(fig, use_container_width=True, key="chart")
 
-    if len(st.session_state.history) >= 2:
-        ts   = [i * 5 for i in range(len(st.session_state.history))]
-        vals = [h[1] for h in st.session_state.history]
-        fig  = go.Figure()
-        fig.add_trace(go.Scatter(x=ts, y=vals, mode="lines+markers",
-                                 line=dict(color="#2ECC71", width=2),
-                                 fill="tozeroy", fillcolor="rgba(46,204,113,0.13)",
-                                 name="Attentive %"))
-        fig.add_hline(y=LOW_ENGAGEMENT_THRESHOLD, line_dash="dash",
-                      line_color="red", annotation_text="Alert threshold")
-        fig.update_layout(title="Attentive % Over Session",
-                          xaxis_title="Elapsed (s)", yaxis_title="%",
-                          yaxis=dict(range=[0, 100]), height=250,
-                          margin=dict(t=40, b=30, l=40, r=20),
-                          paper_bgcolor="rgba(0,0,0,0)")
-        chart_box.plotly_chart(fig, width="stretch", key="chart")
+        if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
+            alert_box.error(
+                f"⚠️ Low engagement! Only {pct['attentive']:.0f}% attentive. "
+                "Consider a break or Q&A."
+            )
+        else:
+            alert_box.empty()
 
-    if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
-        alert_box.error(
-            f"⚠️ Low engagement! Only {pct['attentive']:.0f}% attentive. "
-            "Consider a break or Q&A."
-        )
-    else:
-        alert_box.empty()
+        time.sleep(0.03)
 
-    time.sleep(0.04)   # ~25 fps cap
-    st.rerun()         # ← this is what drives the continuous live feed
+    st.rerun()
 
 # ── Post-session summary ──────────────────────────────────────────────────────
 elif st.session_state.history:
