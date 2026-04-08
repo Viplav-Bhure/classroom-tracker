@@ -74,12 +74,7 @@ st.caption("Real-time student focus detection using MobileNetV2 + MediaPipe")
 c1, c2, c3 = st.columns([1, 1, 6])
 with c1:
     if st.button("▶ Start", type="primary", disabled=st.session_state.running):
-        cap = cv2.VideoCapture(int(cam_idx), cv2.CAP_DSHOW)
-        # Set camera to use direct backend and allow for proper initialization
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer to get latest frames
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap = cv2.VideoCapture(int(cam_idx))
         
         # Test that camera opens properly
         ok, test_frame = cap.read()
@@ -206,8 +201,10 @@ if st.session_state.running:
         cv2.putText(frame, panel, (w_f-255, 22),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.47, (220, 220, 220), 1)
 
-        # Render video
-        frame_box.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_container_width=True)
+        # Render video efficiently by encoding to JPEG on the backend
+        # Passing raw bytes avoids Streamlit's slow Pillow array conversion and Brave Browser array-to-image pipeline crashes
+        _, buffer = cv2.imencode('.jpg', frame)
+        frame_box.image(buffer.tobytes(), width="stretch")
 
         # Render Metrics efficiently (skip Plotly rendering every frame)
         if st.session_state.n_frames % 5 == 0:
@@ -243,7 +240,7 @@ if st.session_state.running:
                               yaxis=dict(range=[0, 100]), height=250,
                               margin=dict(t=40, b=30, l=40, r=20),
                               paper_bgcolor="rgba(0,0,0,0)")
-            chart_box.plotly_chart(fig, use_container_width=True)
+            chart_box.plotly_chart(fig, width="stretch")
 
         if pct["attentive"] < LOW_ENGAGEMENT_THRESHOLD and len(faces) > 0:
             alert_box.error(
@@ -253,7 +250,7 @@ if st.session_state.running:
         else:
             alert_box.empty()
 
-        time.sleep(0.03)
+        time.sleep(0.06)
 
     st.rerun()
 
