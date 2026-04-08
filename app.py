@@ -204,7 +204,7 @@ if st.session_state.running:
         # Render video efficiently by encoding to JPEG on the backend
         # Passing raw bytes avoids Streamlit's slow Pillow array conversion and Brave Browser array-to-image pipeline crashes
         _, buffer = cv2.imencode('.jpg', frame)
-        frame_box.image(buffer.tobytes(), width="stretch")
+        frame_box.image(buffer.tobytes(), use_container_width=True)
 
         # Render Metrics efficiently (skip Plotly rendering every frame)
         if st.session_state.n_frames % 5 == 0:

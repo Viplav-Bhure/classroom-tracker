@@ -40,13 +40,21 @@ def main():
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model     = EngagementModel(num_classes=3).to(DEVICE)
-    criterion = nn.CrossEntropyLoss()
+    
+    # Calculate class weights for imbalanced data
+    labels_list = [s[1] for s in train_ds.samples]
+    counts = torch.tensor([labels_list.count(i) for i in range(3)], dtype=torch.float)
+    weights = 1.0 / (counts + 1e-6)
+    weights = (weights / weights.sum() * 3).to(DEVICE)
+    print(f"Class weights: {weights.cpu().numpy()}")
+
+    # Use label smoothing to handle noisy labels
+    criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=0.1)
     optimizer = torch.optim.AdamW(model.head.parameters(), lr=LR)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     os.makedirs("weights", exist_ok=True)
     best_acc = 0.0
-    all_preds, all_labels = [], []
 
     # ── Training loop ─────────────────────────────────────────────────────────
     for epoch in range(1, EPOCHS + 1):
@@ -58,6 +66,8 @@ def main():
                 {"params": model.backbone.parameters(), "lr": LR / 10},
                 {"params": model.head.parameters(),     "lr": LR},
             ])
+            # Re-initialize scheduler for the new optimizer
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS - 5)
             print(">> Backbone unfrozen — fine-tuning end-to-end")
 
         # Train
@@ -66,25 +76,29 @@ def main():
         for imgs, labels in tqdm(train_dl, desc=f"Epoch {epoch}/{EPOCHS} [train]"):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             optimizer.zero_grad()
-            loss = criterion(model(imgs), labels)
+            
+            outputs = model(imgs)
+            loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            
             train_loss += loss.item()
-            correct += (model(imgs).argmax(1) == labels).sum().item()
+            correct += (outputs.argmax(1) == labels).sum().item()
             total   += len(labels)
         scheduler.step()
 
         # Validate
         model.eval()
         val_correct, val_total = 0, 0
+        all_preds, all_labels = [], []
         with torch.no_grad():
             for imgs, labels in val_dl:
                 imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
                 preds = model(imgs).argmax(1)
                 val_correct += (preds == labels).sum().item()
                 val_total   += len(labels)
-                all_preds.extend(preds.cpu())
-                all_labels.extend(labels.cpu())
+                all_preds.extend(preds.cpu().numpy())
+                all_labels.extend(labels.cpu().numpy())
 
         val_acc = val_correct / val_total
         print(f"  Train acc: {correct/total:.3f}  |  Val acc: {val_acc:.3f}")
@@ -94,11 +108,13 @@ def main():
             best_acc = val_acc
             torch.save(model.state_dict(), "weights/model.pth")
             print(f"  ✓ Saved best model (val acc = {best_acc:.3f})")
+            best_report = classification_report(all_labels, all_preds, 
+                                             target_names=["attentive", "distracted", "disengaged"],
+                                             zero_division=0)
 
     # ── Final report ─────────────────────────────────────────────────────────
-    print("\nClassification Report:")
-    print(classification_report(all_labels, all_preds,
-          target_names=["attentive", "distracted", "disengaged"]))
+    print("\nClassification Report (Best Model):")
+    print(best_report)
     print(f"\nDone! Best val accuracy: {best_acc:.3f}")
     print("Weights saved to: weights/model.pth")
 
