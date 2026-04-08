@@ -1,0 +1,21 @@
+model:
+  num_classes: 3
+  input_size: [224, 224]
+  weights: weights/model.pth
+
+training:
+  epochs: 20
+  batch_size: 32
+  lr: 0.0003
+  train_split: 0.8
+
+classes:
+  - attentive
+  - distracted
+  - disengaged
+
+thresholds:
+  ear: 0.20        # below this = drowsy
+  mar: 0.55        # above this = yawning
+  yaw: 25          # degrees head turned
+  alert: 50        # % attentive below which alert fires

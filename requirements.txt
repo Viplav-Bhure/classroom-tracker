@@ -1,0 +1,13 @@
+torch
+torchvision
+timm
+opencv-python
+streamlit
+plotly
+pandas
+numpy
+scikit-learn
+Pillow
+tqdm
+pyyaml
+kagglehub
