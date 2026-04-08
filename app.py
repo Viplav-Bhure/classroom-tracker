@@ -183,10 +183,16 @@ if st.session_state.running:
         faces = tracker.process(frame)
         for face in faces:
             label, conf, score = predictor.predict(face["roi"])
+            
+            # Fast heuristic override for "false-distracted" using 3D facial yaw
+            if label == "distracted" and face.get("is_frontal", False):
+                label = "attentive"
+                score = max(score, 85.0)  # Boost score
+                
             if conf < 0.55:
-                if face["is_drowsy"] or face["is_yawning"]:
+                if face.get("is_drowsy") or face.get("is_yawning"):
                     label = "disengaged"
-                elif face["is_away"]:
+                elif face.get("is_away"):
                     label = "distracted"
             st.session_state.window.append(label)
             draw_face(frame, face, label, score)
