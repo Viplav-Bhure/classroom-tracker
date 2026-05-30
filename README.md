@@ -1,278 +1,301 @@
 # 🎓 Classroom Engagement Tracker
 
-A real-time student engagement detection system built with MobileNetV2 and OpenCV.
-Detects **Attentive / Distracted / Disengaged** students from webcam or video feed.
+A real-time student engagement monitoring system that uses Computer Vision and Deep Learning to identify whether students are attentive, distracted, or disengaged during a class session.
 
-> B.Tech AIML 3rd Year Project by — Viplav Bhure & Poush Makade
+The project analyzes facial features, eye movements, head orientation, and other visual cues from a webcam feed and provides live engagement insights through an interactive dashboard.
+
+Developed as a B.Tech Artificial Intelligence & Machine Learning project by **Viplav Bhure** and **Poush Makade**.
 
 ---
 
-## Project Structure
+## 📖 Introduction
 
-```
+In online and large classroom environments, it can be difficult for instructors to continuously monitor student attention levels. The Classroom Engagement Tracker aims to assist educators by automatically analyzing student engagement in real time.
+
+Using facial analysis techniques and a deep learning model, the system classifies students into three categories:
+
+* ✅ **Attentive** – Focused and actively participating
+* ⚠️ **Distracted** – Looking away or showing signs of reduced attention
+* ❌ **Disengaged** – Drowsy, inactive, or uninterested
+
+The system provides live visual feedback and engagement statistics through a Streamlit dashboard.
+
+---
+
+## ✨ Features
+
+* Real-time engagement detection using webcam input
+* Deep learning-based classification using MobileNetV2
+* Face detection and facial landmark tracking
+* Eye Aspect Ratio (EAR) analysis for drowsiness detection
+* Mouth Aspect Ratio (MAR) analysis for yawn detection
+* Head pose estimation for attention tracking
+* Interactive Streamlit dashboard
+* Live engagement score visualization
+* Session report generation in CSV format
+* Support for both public and custom datasets
+
+---
+
+## 🛠️ Technology Stack
+
+* Python
+* PyTorch
+* MobileNetV2
+* OpenCV
+* MediaPipe
+* Streamlit
+* Plotly
+* NumPy
+
+---
+
+## 📂 Project Structure
+
+```text
 classroom_tracker/
-├── app.py              ← Streamlit dashboard (main entry point)
-├── model.py            ← MobileNetV2 model + dataset + predictor
-├── face_utils.py       ← OpenCV face detection, EAR, MAR, head pose
-├── train.py            ← Model training script
-├── collect_data.py     ← Record your own training samples via webcam
-├── config.yaml         ← All settings in one place
+│
+├── app.py
+├── model.py
+├── face_utils.py
+├── train.py
+├── collect_data.py
+├── config.yaml
 ├── requirements.txt
-├── data/               ← Put dataset here (attentive / distracted / disengaged)
-├── weights/            ← Trained model saved here
-└── exports/            ← CSV session reports
+│
+├── data/
+├── weights/
+└── exports/
 ```
+
+### File Description
+
+| File              | Description                             |
+| ----------------- | --------------------------------------- |
+| `app.py`          | Main Streamlit dashboard                |
+| `model.py`        | Model architecture and prediction logic |
+| `face_utils.py`   | Face detection and feature extraction   |
+| `train.py`        | Model training script                   |
+| `collect_data.py` | Dataset collection utility              |
+| `config.yaml`     | Configuration settings                  |
+| `weights/`        | Saved trained models                    |
+| `exports/`        | Generated session reports               |
 
 ---
 
-## Setup (VSCode)
+## 🚀 Installation
 
-**1. Clone and open**
+### Clone the Repository
+
 ```bash
-git clone https://github.com/your-username/classroom_tracker.git
-cd classroom_tracker
-code .
+git clone https://github.com/Viplav-Bhure/classroom-tracker.git
+cd classroom-tracker
 ```
 
-**2. Create virtual environment**
+### Create a Virtual Environment
+
 ```bash
 python -m venv venv
+```
 
-# Windows
+Activate the environment:
+
+**Windows**
+
+```bash
 venv\Scripts\activate
+```
 
-# Mac / Linux
+**Linux/macOS**
+
+```bash
 source venv/bin/activate
 ```
 
-**3. Install dependencies**
+### Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-> In VSCode: `Ctrl+Shift+P` → *Python: Select Interpreter* → pick `venv`
-
 ---
 
-## Step-by-Step Usage
+## 📊 Dataset Preparation
 
-### Step 1 — Get training data (choose one or both)
+### Option 1: DAiSEE Dataset
 
-**Option A: Use DAiSEE dataset (automatic download)**
+Download the DAiSEE dataset from Kaggle:
+
+https://www.kaggle.com/datasets/joyee19/studentengagement
+
+Extract the dataset into the `data/` directory.
+
+### Option 2: Create Your Own Dataset
+
+Capture training samples using:
+
 ```bash
-# Dataset downloads automatically when you run training!
-# No manual steps needed - just run python train.py
-```
-
-**Option B: Record your own samples**
-```bash
-python collect_data.py --class attentive  --n 150
+python collect_data.py --class attentive --n 150
 python collect_data.py --class distracted --n 150
 python collect_data.py --class disengaged --n 150
 ```
-Press **SPACE** to capture a frame, **Q** to quit.
 
-**Option C: Use DAiSEE dataset (manual download)**
-- Download from: https://www.kaggle.com/datasets/joyee19/studentengagement
-- Extract to `data/` folder (should create `data/Engaged/` and `data/Not engaged/`)
-- The system auto-maps DAiSEE categories to your 3 classes:
-  - **attentive**: `Engaged/engaged/`
-  - **distracted**: `Engaged/confused/`, `Engaged/frustrated/`, `Not engaged/bored/`
-  - **disengaged**: `Not engaged/Looking away/`, `Not engaged/drowsy/`
+Controls:
 
-**Option D: Mix both** - place custom recordings AND DAiSEE data in the same `data/` folder.
+* **SPACE** → Capture image
+* **Q** → Quit recording
 
-### Step 2 — Train the model
+---
+
+## 🧠 Model Training
+
+Train the model using:
+
 ```bash
 python train.py
 ```
-- Trains for 20 epochs by default
-- Freezes backbone first, unfreezes at epoch 6 for fine-tuning
-- Best weights saved to `weights/model.pth`
 
-### Step 3 — Run the dashboard
+Training process:
+
+* Uses pretrained MobileNetV2 weights
+* Initially freezes the backbone layers
+* Performs fine-tuning in later epochs
+* Saves the best-performing model automatically
+
+Output:
+
+```text
+weights/model.pth
+```
+
+---
+
+## ▶️ Running the Application
+
+Start the dashboard:
+
 ```bash
 streamlit run app.py
 ```
-Open http://localhost:8501 → click **▶ Start** → point camera at your class.
 
----
+Open the URL shown in the terminal (usually):
 
-## How It Works
-
-```
-Webcam Frame
-    │
-    ▼
-OpenCV Face Detection  →  Face bounding boxes
-    │
-    ├── Eye Aspect Ratio (EAR)  →  detects drowsiness
-    ├── Mouth Aspect Ratio (MAR) →  detects yawning
-    ├── Head Pose (PnP Solver)   →  detects looking away
-    │
-    ▼
-Face ROI cropped
-    │
-    ▼
-MobileNetV2  →  [attentive, distracted, disengaged] softmax
-    │
-    ▼
-Composite Score (0–100)  →  Streamlit Gauges + Chart
+```text
+http://localhost:8501
 ```
 
----
-
-## Dataset Options
-
-| Option | Details |
-|--------|---------|
-| **Record yourself** | Use `collect_data.py` — 150 samples/class is enough to start |
-| **DAiSEE** | ~10k labelled frames from Kaggle — best results |
-| **EngageActivity** | Alternative Kaggle dataset |
+Click **Start** and allow camera access to begin monitoring.
 
 ---
 
-## Config (`config.yaml`)
+## ⚙️ System Workflow
 
-```yaml
-training:
-  epochs: 20       # increase to 30 for better accuracy
-  batch_size: 32
-  lr: 0.0003
-
-thresholds:
-  ear: 0.20        # below = eyes closed / drowsy
-  yaw: 25          # head turned more than 25° = distracted
-  alert: 50        # fire warning if attentive% drops below 50%
+```text
+Webcam Feed
+     │
+     ▼
+Face Detection
+     │
+     ▼
+Feature Extraction
+(EAR, MAR, Head Pose)
+     │
+     ▼
+MobileNetV2 Classification
+     │
+     ▼
+Engagement Prediction
+     │
+     ▼
+Dashboard Visualization
 ```
 
 ---
 
-## Results (DAiSEE dataset)
+## 🔍 How It Works
 
-| Metric | Value |
-|--------|-------|
-| Validation Accuracy | ~88% |
-| Macro F1-Score | ~0.86 |
-| Inference Speed | ~25 ms/frame (CPU) |
+### Face Detection
+
+The system first detects faces from each video frame using OpenCV and MediaPipe.
+
+### Eye Aspect Ratio (EAR)
+
+EAR is used to detect prolonged eye closure, which may indicate drowsiness or disengagement.
+
+### Mouth Aspect Ratio (MAR)
+
+MAR helps identify yawning behavior, which can be a sign of fatigue.
+
+### Head Pose Estimation
+
+The orientation of the head is analyzed to determine whether the student is looking toward the screen or away from it.
+
+### Deep Learning Classification
+
+The extracted facial region is passed through a MobileNetV2 model, which predicts one of the following classes:
+
+* Attentive
+* Distracted
+* Disengaged
 
 ---
 
-## Tech Stack
-- **PyTorch + timm** — MobileNetV2 pretrained on ImageNet
-- **MediaPipe** — real-time face mesh
-- **OpenCV** — webcam capture and annotation
-- **Streamlit + Plotly** — live dashboard
+## 📈 Dashboard Output
 
-🎓 Classroom Engagement Tracker — Simple Explanation
-🟢 1. What is this project?
+The dashboard displays:
 
-This is a real-time AI system that checks if students are:
+* Current engagement state
+* Prediction confidence
+* Engagement score
+* Real-time graphs
+* Session statistics
+* Exportable CSV reports
 
-✅ Attentive (focused)
-⚠️ Distracted (looking away, confused)
-❌ Disengaged (sleepy, not interested)
+---
 
-👉 It uses a camera (webcam) and gives live results on screen
+## 📊 Performance
 
-🟢 2. Why we made this?
+| Metric              | Value              |
+| ------------------- | ------------------ |
+| Validation Accuracy | ~88%               |
+| Macro F1 Score      | ~0.86              |
+| Inference Speed     | ~25 ms/frame (CPU) |
 
-“In online or large classrooms, it’s hard for teachers to know who is paying attention.
-So we built a system that automatically tracks student engagement using AI.”
+Performance may vary depending on hardware, lighting conditions, and camera quality.
 
-🟢 3. Technologies Used (keep this short)
-OpenCV → to capture video from camera
-MediaPipe → to detect face & facial landmarks
-MobileNetV2 (Deep Learning model) → to classify attention
-Streamlit → to show dashboard
-PyTorch → to train model
+---
 
-👉 One line:
-“OpenCV + MediaPipe extract features, and MobileNetV2 classifies engagement.”
+## 🎯 Applications
 
-🟢 4. How system works (VERY IMPORTANT — explain clearly)
+* Smart classrooms
+* Online learning platforms
+* Student engagement analysis
+* Educational research
+* Automated classroom monitoring
 
-Say this step by step 👇
+---
 
-🔄 Flow:
-Camera captures video
-Face is detected using OpenCV
-Important features are extracted:
-👁 Eye (EAR → eyes closed = sleepy)
-👄 Mouth (MAR → yawning)
-🧠 Head pose (looking away)
-Face image is sent to AI model (MobileNetV2)
-Model predicts:
-Attentive / Distracted / Disengaged
-Output is shown on dashboard:
-Label (text)
-Score (0–100)
-Graph (live tracking)
-🟢 5. Input → Process → Output (MOST IMPORTANT PART)
-✅ Input:
-Live webcam video OR recorded video
-⚙️ Process:
-Face detection
-Feature extraction (eyes, mouth, head)
-AI model prediction
-📊 Output:
-Student state:
-👉 Attentive / Distracted / Disengaged
-Engagement score (like 75%)
-Live dashboard with charts
-🟢 6. Training the Model (simple explanation)
+## 🔮 Future Improvements
 
-“We trained our model using dataset like DAiSEE and custom images.”
+* Multi-student engagement tracking
+* Attendance integration
+* Teacher analytics dashboard
+* Cloud deployment
+* Emotion recognition
+* Advanced reporting and analytics
 
-Steps:
+---
 
-Collect images (3 classes)
-Train MobileNetV2
-Save best model (model.pth)
-Use it in real-time app
-🟢 7. Accuracy / Performance
-Accuracy ≈ 88%
-Works in real-time (~25ms per frame)
+## 🏁 Conclusion
 
-👉 Say:
-“Our model gives good accuracy and fast real-time performance.”
+The Classroom Engagement Tracker demonstrates how Artificial Intelligence and Computer Vision can be used to improve classroom monitoring and learning outcomes. By combining facial feature analysis with deep learning, the system provides real-time insights into student engagement, helping educators better understand and support their students.
 
-🟢 8. Demo Explanation (what to say while showing)
+---
 
-When you run:
+## 👨‍💻 Authors
 
-streamlit run app.py
+**Viplav Bhure**
+B.Tech Artificial Intelligence & Machine Learning
 
-Say this 👇
-
-“This is our live dashboard”
-“When I start camera, system detects my face”
-“Now you can see it classifies my state”
-“If I look away → distracted”
-“If I close eyes → disengaged”
-“Graph updates in real time”
-🟢 9. Key Features (quick points)
-Real-time detection
-Works on webcam
-AI-based classification
-Live dashboard
-Can generate reports (CSV)
-🟢 10. One-Line Conclusion (IMPORTANT)
-
-👉 Say this at end:
-
-“This project helps teachers automatically monitor student attention using AI, making classrooms more interactive and effective.”
-
-🔥 BONUS: 1-Minute Full Script (MEMORIZE THIS)
-
-“Good morning, today I am presenting our project Classroom Engagement Tracker.
-This system uses AI to detect whether a student is attentive, distracted, or disengaged in real time.
-
-We use OpenCV and MediaPipe to detect the face and extract features like eye movement, mouth movement, and head pose.
-These features are passed into a MobileNetV2 deep learning model which classifies the student’s engagement level.
-
-The system takes webcam input, processes each frame, and outputs the engagement state along with a score on a live Streamlit dashboard.
-
-Our model is trained on datasets like DAiSEE and achieves around 88% accuracy with real-time performance.
-
-This project can help teachers monitor student attention automatically, especially in online or large classrooms.”
+**Poush Makade**
+B.Tech Artificial Intelligence & Machine Learning
